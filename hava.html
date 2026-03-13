@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Türkiye Hava Durumu | Kusursuz Sürüm</title>
+    <style>
+        :root {
+            --glass: rgba(255, 255, 255, 0.1);
+            --accent: #fbbf24;
+            --text-main: #f8fafc;
+            --text-dark: #000000;
+        }
+
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background: linear-gradient(180deg, #1e2024 0%, #0a0a0c 100%);
+            color: var(--text-main);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            min-height: 100vh;
+        }
+
+        .app-container {
+            width: 100%;
+            max-width: 500px;
+        }
+
+        /* Şehir Seçici */
+        .search-box {
+            margin-bottom: 25px;
+            width: 100%;
+        }
+
+        #city-select {
+            width: 100%;
+            padding: 15px;
+            border-radius: 15px;
+            background: #ffffff; 
+            color: var(--text-dark); 
+            border: 2px solid var(--accent);
+            font-size: 1.1rem;
+            font-weight: 700;
+            outline: none;
+            cursor: pointer;
+        }
+
+        #city-select option {
+            color: var(--text-dark);
+            background: #ffffff;
+        }
+
+        /* Ana Kart */
+        .now-card {
+            background: var(--glass);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 35px;
+            padding: 30px 20px;
+            text-align: center;
+            margin-bottom: 25px;
+            box-shadow: 0 30px 60px rgba(0,0,0,0.6);
+        }
+
+        #city-title {
+            font-weight: 800;
+            color: var(--accent);
+            font-size: 1.8rem;
+            letter-spacing: 1px;
+            margin-bottom: 10px;
+        }
+
+        .main-temp {
+            font-size: 5rem;
+            font-weight: 900;
+            margin: 10px 0;
+        }
+
+        .main-desc {
+            font-size: 1.1rem;
+            background: rgba(255,255,255,0.15);
+            padding: 8px 25px;
+            border-radius: 50px;
+            display: inline-block;
+        }
+
+        .section-title {
+            font-size: 0.8rem;
+            opacity: 0.7;
+            margin: 25px 0 12px 10px;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+        }
+
+        /* Liste ve Accordion */
+        .daily-item {
+            background: var(--glass);
+            border-radius: 20px;
+            margin-bottom: 12px;
+            border: 1px solid rgba(255,255,255,0.05);
+            overflow: hidden;
+        }
+
+        .daily-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 18px 20px;
+            cursor: pointer;
+        }
+
+        .daily-details {
+            max-height: 0;
+            opacity: 0;
+            transition: all 0.4s ease;
+            background: rgba(0,0,0,0.3);
+        }
+
+        .daily-details.open {
+            max-height: 150px;
+            opacity: 1;
+            padding: 15px 0;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="app-container">
+        <div class="search-box">
+            <select id="city-select"></select>
+        </div>
+
+        <div class="now-card">
+            <div id="city-title">YÜKLENİYOR...</div>
+            <div id="m-icon" style="font-size: 80px; margin: 15px 0;">☀️</div>
+            <div class="main-temp"><span id="m-temp">--</span>°</div>
+            <div id="m-desc" class="main-desc">Lütfen bekleyin...</div>
+        </div>
+
+        <div class="section-title">24 Saatlik Tahmin</div>
+        <div id="h-scroll" style="display:flex; overflow-x:auto; gap:10px; padding-bottom:15px; scrollbar-width:none;"></div>
+
+        <div class="section-title">10 Günlük Tahmin</div>
+        <div id="d-list"></div>
+    </div>
+
+    <script>
+        const rawCities = [
+            {n:"Adana", la:36.99, lo:35.32}, {n:"Adıyaman", la:37.76, lo:38.27}, {n:"Afyonkarahisar", la:38.75, lo:30.53}, {n:"Ağrı", la:39.71, lo:43.04}, {n:"Amasya", la:40.65, lo:35.83}, {n:"Ankara", la:39.93, lo:32.85}, {n:"Antalya", la:36.88, lo:30.70}, {n:"Artvin", la:41.18, lo:41.81}, {n:"Aydın", la:37.84, lo:27.84}, {n:"Balıkesir", la:39.64, lo:27.88}, {n:"Bilecik", la:40.14, lo:29.97}, {n:"Bingöl", la:38.88, lo:40.50}, {n:"Bitlis", la:38.40, lo:42.10}, {n:"Bolu", la:40.73, lo:31.60}, {n:"Burdur", la:37.72, lo:30.28}, {n:"Bursa", la:40.18, lo:29.06}, {n:"Çanakkale", la:40.15, lo:26.40}, {n:"Çankırı", la:40.60, lo:33.61}, {n:"Çorum", la:40.55, lo:34.95}, {n:"Denizli", la:37.77, lo:29.08}, {n:"Diyarbakır", la:37.91, lo:40.24}, {n:"Edirne", la:41.67, lo:26.55}, {n:"Elazığ", la:38.68, lo:39.22}, {n:"Erzincan", la:39.75, lo:39.49}, {n:"Erzurum", la:39.90, lo:41.27}, {n:"Eskişehir", la:39.77, lo:30.52}, {n:"Gaziantep", la:37.06, lo:37.38}, {n:"Giresun", la:40.91, lo:38.38}, {n:"Gümüşhane", la:40.46, lo:39.47}, {n:"Hakkari", la:37.57, lo:43.73}, {n:"Hatay", la:36.20, lo:36.15}, {n:"Isparta", la:37.76, lo:30.55}, {n:"Mersin", la:36.81, lo:34.63}, {n:"İstanbul", la:41.00, lo:28.97}, {n:"İzmir", la:38.41, lo:27.12}, {n:"Kars", la:40.61, lo:43.06}, {n:"Kastamonu", la:41.38, lo:33.77}, {n:"Kayseri", la:38.73, lo:35.48}, {n:"Kırklareli", la:41.73, lo:27.22}, {n:"Kırşehir", la:39.14, lo:34.16}, {n:"Kocaeli", la:40.85, lo:29.88}, {n:"Konya", la:37.87, lo:32.48}, {n:"Kütahya", la:39.41, lo:29.98}, {n:"Malatya", la:38.35, lo:38.33}, {n:"Manisa", la:38.61, lo:27.42}, {n:"Kahramanmaraş", la:37.57, lo:36.92}, {n:"Mardin", la:37.31, lo:40.73}, {n:"Muğla", la:37.21, lo:28.36}, {n:"Muş", la:38.94, lo:41.75}, {n:"Nevşehir", la:38.62, lo:34.71}, {n:"Niğde", la:37.96, lo:34.67}, {n:"Ordu", la:40.98, lo:37.87}, {n:"Rize", la:41.02, lo:40.52}, {n:"Sakarya", la:40.75, lo:30.38}, {n:"Samsun", la:41.28, lo:36.33}, {n:"Siirt", la:37.92, lo:41.94}, {n:"Sinop", la:42.02, lo:35.15}, {n:"Sivas", la:39.74, lo:37.01}, {n:"Tekirdağ", la:40.97, lo:27.51}, {n:"Tokat", la:40.31, lo:36.55}, {n:"Trabzon", la:41.00, lo:39.71}, {n:"Tunceli", la:39.10, lo:39.54}, {n:"Şanlıurfa", la:37.15, lo:38.79}, {n:"Uşak", la:38.68, lo:29.40}, {n:"Van", la:38.48, lo:43.38}, {n:"Yozgat", la:39.81, lo:34.80}, {n:"Zonguldak", la:41.45, lo:31.79}, {n:"Aksaray", la:38.36, lo:34.03}, {n:"Bayburt", la:40.25, lo:39.93}, {n:"Karaman", la:37.17, lo:33.22}, {n:"Kırıkkale", la:39.84, lo:33.51}, {n:"Batman", la:37.88, lo:41.12}, {n:"Şırnak", la:37.51, lo:42.45}, {n:"Bartın", la:41.63, lo:32.33}, {n:"Ardahan", la:41.11, lo:42.70}, {n:"Iğdır", la:39.91, lo:44.04}, {n:"Yalova", la:40.65, lo:29.27}, {n:"Karabük", la:41.20, lo:32.62}, {n:"Kilis", la:36.71, lo:37.11}, {n:"Osmaniye", la:37.07, lo:36.24}, {n:"Düzce", la:40.84, lo:31.15}
+        ];
+
+        // 1. DÜZELTME: Tam Alfabetik Sıralama
+        rawCities.sort((a, b) => a.n.localeCompare(b.n, 'tr'));
+
+        const select = document.getElementById('city-select');
+        rawCities.forEach(c => {
+            let opt = document.createElement('option');
+            opt.value = `${c.la},${c.lo}`;
+            opt.innerText = c.n;
+            select.appendChild(opt);
+        });
+
+        // 2. DÜZELTME: Open-Meteo'nun Tüm WMO Kodları (Eksiksiz)
+        // İkon ve Metni ayrı ayrı obje içinde tutarak kelime bölünme hatasını engelledik.
+        const weatherMap = {
+            0: { icon: "☀️", text: "Açık" },
+            1: { icon: "🌤️", text: "Çoğunlukla Açık" },
+            2: { icon: "⛅", text: "Parçalı Bulutlu" },
+            3: { icon: "☁️", text: "Çok Bulutlu" },
+            45: { icon: "🌫️", text: "Sisli" },
+            48: { icon: "🌫️", text: "Kırağılı Sis" },
+            51: { icon: "🌦️", text: "Hafif Çiseleme" },
+            53: { icon: "🌦️", text: "Çiseleme" },
+            55: { icon: "🌦️", text: "Yoğun Çiseleme" },
+            56: { icon: "🌧️", text: "Hafif Donan Çiseleme" },
+            57: { icon: "🌧️", text: "Yoğun Donan Çiseleme" },
+            61: { icon: "🌧️", text: "Hafif Yağmur" },
+            63: { icon: "🌧️", text: "Orta Yağmur" },
+            65: { icon: "🌧️", text: "Şiddetli Yağmur" },
+            66: { icon: "🌧️", text: "Hafif Donan Yağmur" },
+            67: { icon: "🌧️", text: "Şiddetli Donan Yağmur" },
+            71: { icon: "❄️", text: "Hafif Kar Yağışlı" },
+            73: { icon: "❄️", text: "Kar Yağışlı" },
+            75: { icon: "❄️", text: "Yoğun Kar Yağışlı" },
+            77: { icon: "❄️", text: "Kar Taneleri" },
+            80: { icon: "🌦️", text: "Hafif Sağanak" },
+            81: { icon: "🌧️", text: "Sağanak Yağışlı" },
+            82: { icon: "🌧️", text: "Şiddetli Sağanak" },
+            85: { icon: "❄️", text: "Hafif Kar Sağanağı" },
+            86: { icon: "❄️", text: "Yoğun Kar Sağanağı" },
+            95: { icon: "⚡", text: "Fırtına" },
+            96: { icon: "⛈️", text: "Hafif Dolulu Fırtına" },
+            99: { icon: "⛈️", text: "Şiddetli Dolulu Fırtına" }
+        };
+
+        const getW = (c) => weatherMap[c] || { icon: "❓", text: "Bilinmeyen Durum" };
+
+        select.onchange = (e) => {
+            const [la, lo] = e.target.value.split(',');
+            const name = e.target.options[e.target.selectedIndex].text;
+            localStorage.setItem('lastCityCoord', e.target.value);
+            fetchWeather(la, lo, name);
+        };
+
+        async function fetchWeather(la, lo, name) {
+            document.getElementById('city-title').innerText = name.toUpperCase();
+            try {
+                const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${la}&longitude=${lo}&current=temperature_2m,weather_code&hourly=temperature_2m,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min&timezone=auto&forecast_days=10`);
+                const data = await res.json();
+
+                const cur = getW(data.current.weather_code);
+                document.getElementById('m-icon').innerText = cur.icon;
+                document.getElementById('m-temp').innerText = Math.round(data.current.temperature_2m);
+                document.getElementById('m-desc').innerText = cur.text;
+
+                const hScroll = document.getElementById('h-scroll');
+                hScroll.innerHTML = "";
+                for(let i=0; i<24; i++) {
+                    const info = getW(data.hourly.weather_code[i]);
+                    hScroll.innerHTML += `
+                        <div style="min-width:75px; background:rgba(255,255,255,0.1); border-radius:18px; padding:12px; text-align:center; border:1px solid rgba(255,255,255,0.05)">
+                            <div style="font-size:0.7rem;opacity:0.6">${i}:00</div>
+                            <div style="font-size:1.6rem;margin:6px 0">${info.icon}</div>
+                            <div style="font-weight:700">${Math.round(data.hourly.temperature_2m[i])}°</div>
+                        </div>`;
+                }
+
+                const dList = document.getElementById('d-list');
+                dList.innerHTML = "";
+                for(let i=0; i<10; i++) {
+                    const info = getW(data.daily.weather_code[i]);
+                    const date = new Date(data.daily.time[i]).toLocaleDateString('tr-TR', {weekday:'long'});
+                    let hourlyHTML = "";
+                    for(let h=0; h<24; h++) {
+                        const hIdx = (i*24)+h;
+                        const hInfo = getW(data.hourly.weather_code[hIdx]);
+                        hourlyHTML += `<div style="text-align:center; min-width:60px"><div style="font-size:0.65rem;opacity:0.7">${h}:00</div><div>${hInfo.icon}</div><div style="font-weight:700">${Math.round(data.hourly.temperature_2m[hIdx])}°</div></div>`;
+                    }
+                    dList.innerHTML += `
+                        <div class="daily-item">
+                            <div class="daily-row" onclick="this.nextElementSibling.classList.toggle('open')">
+                                <span style="width:100px; font-weight:600">${i==0?'Bugün':date}</span>
+                                <span style="flex:1; text-align:center">${info.icon} <span style="font-size:0.85rem; opacity:0.8;">${info.text}</span></span>
+                                <span style="width:85px;text-align:right; font-weight:700">${Math.round(data.daily.temperature_2m_max[i])}° / <small style="opacity:0.5; font-weight:400">${Math.round(data.daily.temperature_2m_min[i])}°</small></span>
+                            </div>
+                            <div class="daily-details">
+                                <div style="display:flex; overflow-x:auto; padding:15px; gap:12px; scrollbar-width:none;">${hourlyHTML}</div>
+                            </div>
+                        </div>`;
+                }
+            } catch(e) { console.log("Veri çekme hatası:", e); }
+        }
+
+        let savedCoord = localStorage.getItem('lastCityCoord');
+        let exists = Array.from(select.options).some(opt => opt.value === savedCoord);
+        if (!exists) { savedCoord = "37.91,40.24"; } // Bulamazsa Diyarbakır'ı açar
+
+        select.value = savedCoord;
+        const selectedName = select.options[select.selectedIndex].text;
+        fetchWeather(savedCoord.split(',')[0], savedCoord.split(',')[1], selectedName);
+
+    </script>
+</body>
+</html>
